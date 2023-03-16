@@ -26,7 +26,8 @@
 // IMDS endpoint for getting the VCek certificate
 constexpr char imds_endpoint[] = "http://169.254.169.254/metadata";
 constexpr char vcek_cert_path[] = "/THIM/amd/certification";
-constexpr char td_quote_path[] = "/acc/tdquote";
+constexpr char acc_endpoint[] = "http://169.254.169.254/acc";
+constexpr char td_quote_path[] = "/tdquote";
 
 attest::AttestationResult ImdsOperations::GetVCekCert(std::string& vcek_cert) {
     AttestationResult result(AttestationResult::ErrorCode::SUCCESS);
@@ -70,35 +71,29 @@ attest::AttestationResult ImdsOperations::GetVCekCert(std::string& vcek_cert) {
 attest::AttestationResult ImdsOperations::GetPlatformEvidence(const std::string &imds_request,
                                                               std::string &imds_response) {
     AttestationResult result(AttestationResult::ErrorCode::SUCCESS);
+    std::string content_type = "Content-Type:application/json";
     std::string http_response;
-    std::string url = std::string(imds_endpoint) + std::string(td_quote_path);
+    std::string url = std::string(acc_endpoint) + std::string(td_quote_path);
 
     CLIENT_LOG_INFO("Starting request to IMDS");
 
     HttpClient http_client;
-    result = http_client.InvokeHttpImdsRequest(http_response, url, HttpClient::HttpVerb::POST, imds_request);
+    result = http_client.InvokeHttpImdsRequest(
+        http_response,
+        url,
+        HttpClient::HttpVerb::POST,
+        imds_request,
+        content_type);
+
     if (result.code_ != AttestationResult::ErrorCode::SUCCESS) {
         CLIENT_LOG_ERROR("Failed to retrieve Td Quote Data from IMDS: %s",
                          result.description_.c_str());
         return result;
     }
 
-    Json::Value root;
-    Json::Reader reader;
-    bool parsing_successful = reader.parse(http_response, root);
-    if (!parsing_successful) {
-        CLIENT_LOG_ERROR("Invalid JSON response from IMDS");
-        result.code_ = AttestationResult::ErrorCode::ERROR_INVALID_JSON_RESPONSE;
-        result.description_ = std::string("Invalid JSON response from IMDS");
-        return result;
-    }
-
-    std::string encoded_quote = root["Quote"].asString();
-    if (encoded_quote.empty()) {
-        CLIENT_LOG_ERROR("Empty Quote received from IMDS Quote Endpoint");
-        result.code_ = AttestationResult::ErrorCode::ERROR_EMPTY_TD_QUOTE;
-        result.description_ = std::string("Empty Quote received from IMDS Quote Endpoint");
-        return result;
+    if (http_response.empty()) {
+        CLIENT_LOG_ERROR("Empty response received from the endpoint");
+        return AttestationResult::ErrorCode::ERROR_EMPTY_RESPONSE;
     }
 
     CLIENT_LOG_INFO("Td Quote received from IMDS successfully");

@@ -7,16 +7,12 @@
 #include <map>
 #include <chrono>
 #include <nlohmann/json.hpp>
-#include "src/Utils.h"
 #include "src/Logger.h"
-#include "src/AttestClient.h"
-#include "src/HttpClient.h"
 
 using json = nlohmann::json;
 using namespace std;
 using namespace std::chrono;
 
-#ifndef PLATFORM_UNIX
 static char *optarg = nullptr;
 static int optind = 1;
 static int getopt(int argc, char *const argv[], const char *optstring) {
@@ -46,7 +42,6 @@ static int getopt(int argc, char *const argv[], const char *optstring) {
   }
   return opt;
 }
-#endif //! PLATFORM_UNIX
 
 void usage(char *programName) {
   printf("Usage: %s [arguments]\n", programName);
@@ -119,109 +114,85 @@ int main(int argc, char *argv[]) {
     }
     provider = config["attestation_provider"];
 
-    if (!Utils::case_insensitive_compare(provider, "amber") &&
-        !Utils::case_insensitive_compare(provider, "maa")) {
+    if ((provider.compare("amber") != 0) && (provider.compare("maa") != 0)) {
       fprintf(stderr, "Attestation provider was incorrect\n\n");
       usage(argv[0]);
       exit(1);
     }
 
-    std::map<std::string, std::string> hash_type;
-    hash_type["maa"] = "sha256";
-    hash_type["amber"] = "sha512";
+      // check for user claims
+      std::string client_payload;
+      json user_claims = config["claims"];
+      if (!user_claims.is_null()) {
+        client_payload = user_claims.dump();
+      }
 
-    // check for user claims
-    std::string client_payload;
-    json user_claims = config["claims"];
-    if (!user_claims.is_null()) {
-      client_payload = user_claims.dump();
-    }
-
-    // if attesting with Amber, we need to make sure an API token was provided
-    if (api_key.empty() && Utils::case_insensitive_compare(provider, "amber")) {
-      fprintf(stderr, "Attestation endpoint \"api_key\" value missing\n\n");
-      usage(argv[0]);
-      exit(1);
-    }
-
-    std::string output_filename;
-    if (config.contains("output_filename")) {
-      output_filename = config["output_filename"];
-    }
-
-    AttestationClient *attestation_client = nullptr;
-    Logger *log_handle = new Logger();
-
-    // Initialize attestation client
-    if (!Initialize(log_handle, &attestation_client)) {
-      fprintf(stderr, "Failed to create attestation client object\n\n");
-      Uninitialize();
-      exit(1);
-    }
-    attest::AttestationResult result;
-
-    attest::ClientParameters params = {};
-    params.attestation_endpoint_url = (unsigned char *)attestation_url.c_str();
-    params.attestation_provider = provider;
-    params.attestation_api_key(api_key);
-    params.client_payload = (unsigned char *)client_payload.c_str();
-
-    bool has_quote = true;
-    std::string quote_data;
-
-    auto start = high_resolution_clock::now();
-
-    std::string jwt_token;
-    result = attestation_client->AttestTdx(params, jwt_token);
-
-    auto stop = high_resolution_clock::now();
-    duration<double, std::milli> elapsed = stop - start;
-
-    if (result.code_ != attest::AttestationResult::ErrorCode::SUCCESS) {
-      has_quote = false;
-    }
-
-    if (has_quote) {
-      // // Parses the returned json response
-      // json json_response = json::parse(quote_data);
-
-      // std::string encoded_quote = json_response["quote"];
-      // if (encoded_quote.empty()) {
-      //     result.code_ = attest::AttestationResult::ErrorCode::ERROR_EMPTY_TD_QUOTE;
-      //     result.description_ = std::string("Empty Quote received from IMDS Quote Endpoint");
-      // }
-
-      if (jwt_token.empty()) {
-        fprintf(stderr, "Empty token received\n");
-        Uninitialize();
+      // if attesting with Amber, we need to make sure an API token was provided
+      if (api_key.empty() && (provider.compare("amber") == 0)) {
+        fprintf(stderr, "Attestation endpoint \"api_key\" value missing\n\n");
+        usage(argv[0]);
         exit(1);
       }
 
-      cout << "Hardware attestation passed successfully!!" << endl;
-      cout << "TOKEN:\n" << endl;
-      std::cout << jwt_token << std::endl << std::endl;
-
-      if (metrics_enabled) {
-        stringstream stream;
-        stream << "Run Summary:\n"
-               << "\tAttestation Time(ms): " << std::to_string(elapsed.count()) << "\n";
-
-        cout << stream.str() << endl;
-
-        // json result;
-        // result["Evidence Request(ms)"] = std::to_string(elapsed.count());
-        // result["Attestation Request(ms)"] = std::to_string(token_elapsed.count());
-
-        // std::ofstream out("metrics.json");
-        // if (out.is_open()) {
-        //   out << result.dump(4);
-        //   out.close();
-        // }
+      std::string output_filename;
+      if (config.contains("output_filename")) {
+        output_filename = config["output_filename"];
       }
-    }
 
-    Uninitialize();
-  }
+      AttestationClient *attestation_client = nullptr;
+      Logger *log_handle = new Logger();
+
+      // Initialize attestation client
+      if (!Initialize(log_handle, &attestation_client)) {
+        fprintf(stderr, "Failed to create attestation client object\n\n");
+        Uninitialize();
+        exit(1);
+      }
+      attest::AttestationResult result;
+
+      attest::ClientParameters params = {};
+      params.attestation_endpoint_url = (unsigned char *)attestation_url.c_str();
+      params.attestation_provider = provider;
+      params.attestation_api_key(api_key);
+      params.client_payload = (unsigned char *)client_payload.c_str();
+
+      bool has_token = true;
+      auto start = high_resolution_clock::now();
+
+      std::string jwt_token;
+      result = attestation_client->AttestTdx(params, jwt_token);
+
+      auto stop = high_resolution_clock::now();
+      duration<double, std::milli> elapsed = stop - start;
+
+      if (result.code_ != attest::AttestationResult::ErrorCode::SUCCESS) {
+        has_token = false;
+      }
+
+      if (has_token) {
+        if (jwt_token.empty()) {
+          fprintf(stderr, "Empty token received\n");
+          Uninitialize();
+          exit(1);
+        }
+
+        cout << "Hardware attestation passed successfully!!" << endl;
+        cout << "TOKEN:\n"
+             << endl;
+        std::cout << jwt_token << std::endl
+                  << std::endl;
+
+        if (metrics_enabled) {
+          stringstream stream;
+          stream << "Run Summary:\n"
+                 << "\tAttestation Time(ms): " << std::to_string(elapsed.count()) << "\n";
+
+          cout << stream.str() << endl;
+        }
+      }
+
+      Uninitialize();
+    }
   catch (std::exception &e) {
     cout << "Exception occured. Details - " << e.what() << endl;
     exit(1);

@@ -38,6 +38,7 @@
 #include "AttestationLibConst.h"
 #include "TpmUnseal.h"
 #include "ImdsOperations.h"
+#include "HttpClient.h"
 #include "HclReportParser.h"
 
 #include "TdxAttestationUtils.h"
@@ -177,6 +178,144 @@ AttestationResult AttestationClientImpl::Attest(const ClientParameters& client_p
     return result;
 }
 
+AttestationResult AttestationClientImpl::AttestTdx(const attest::ClientParameters &client_params,
+                                                   std::string &jwt_token) noexcept {
+    using namespace std::chrono;
+    AttestationResult result(AttestationResult::ErrorCode::SUCCESS);
+
+    bool is_maa = false;
+    bool is_amber = false;
+    std::string hash_type;
+    std::string url(reinterpret_cast<const char *>(client_params.attestation_endpoint_url));
+    std::string attestation_type(reinterpret_cast<const char *>(client_params.attestation_provider));
+
+    // checks where request is being sent
+    if (attestation_type.compare("maa") == 0) {
+       is_maa = true;
+       hash_type = "sha256";
+    }
+    else if (attestation_type.compare("amber") == 0) {
+        is_amber = true;
+        hash_type = "sha512";
+    }
+    else {
+        result.code_ = AttestationResult::ErrorCode::ERROR_INVALID_INPUT_PARAMETER;
+        result.description_ = std::string("Attestation type was not provided, only supports maa or amber");
+        CLIENT_LOG_ERROR(result.description_.c_str());
+        return result;
+    }
+
+    std::string quote_data;
+    std::string client_payload((const char *)client_params.client_payload);
+    result = GetHardwarePlatformEvidence(quote_data, client_payload, hash_type);
+    if (result.code_ != AttestationResult::ErrorCode::SUCCESS) {
+        result.description_ = std::string("Failed to retrieve a td quote");
+        CLIENT_LOG_ERROR(result.description_.c_str());
+        return result;
+    }
+
+    // Parses the returned json response
+    Json::Value json_response;
+    Json::Reader reader;
+    bool success = reader.parse(quote_data, json_response);
+    if (!success) {
+        result.code_ = AttestationResult::ErrorCode::ERROR_RESPONSE_PARSING;
+        result.description_ = std::string("Failed to parse quote response");
+        CLIENT_LOG_ERROR(result.description_.c_str());
+        return result;
+    }
+
+    std::string encoded_quote = json_response["quote"].asString();
+    if (encoded_quote.empty()) {
+        result.code_ = AttestationResult::ErrorCode::ERROR_EMPTY_TD_QUOTE;
+        result.description_ = std::string("Empty Quote received from IMDS Quote Endpoint");
+        return result;
+    }
+
+    std::string encoded_claims =
+        attest::base64::binary_to_base64url(std::vector<unsigned char>(client_payload.begin(), client_payload.end()));
+
+    // headers needed for requests
+    std::vector<std::string> headers = {
+        "Accept:application/json",
+        "Content-Type:application/json"};
+
+    // checks where we are sending the request
+    std::stringstream stream;
+    if (is_maa) {
+        stream << "{\"quote\":\"" << encoded_quote
+               << "\",\"runtimeData\":{\"data\":\""
+               << encoded_claims << "\",\"dataType\":\"JSON\"}}";
+    }
+    else if (is_amber) {
+        std::string api_key_header = "x-api-key:" + client_params.attestation_api_key;
+        headers.push_back(api_key_header.c_str());
+
+        stream << "{\"quote\":\"" << attest::base64::base64url_to_base64(encoded_quote) << "\"";
+        if (!encoded_claims.empty()) {
+            stream << ",\"user_data\":\"" << attest::base64::base64url_to_base64(encoded_claims) << "\"";
+        }
+        stream << "}";
+    }
+    else {
+        result.code_ = AttestationResult::ErrorCode::ERROR_INVALID_INPUT_PARAMETER;
+        result.description_ = std::string("Invalid attestation type");
+        CLIENT_LOG_ERROR(result.description_.c_str());
+        return result;
+    }
+
+    std::string response;
+    std::string request_body = stream.str();
+
+    CLIENT_LOG_INFO("Starting attestation request...");
+    CLIENT_LOG_INFO(std::string("Attestation endpoint: " + url).c_str());
+
+    auto start = high_resolution_clock::now();
+    HttpClient http_client;
+    result = http_client.InvokeHttpRequest(
+        response,
+        url,
+        HttpClient::HttpVerb::POST,
+        headers,
+        request_body);
+
+    auto stop = high_resolution_clock::now();
+    duration<double, std::milli> elapsed = stop - start;
+
+    if (result.code_ != AttestationResult::ErrorCode::SUCCESS) {
+        result.description_ = "Failed to reach attestation endpoint";
+        CLIENT_LOG_ERROR(result.description_.c_str());
+        return result;
+    }
+
+    if (response.empty()) {
+        result.code_ = AttestationResult::ErrorCode::ERROR_EMPTY_RESPONSE;
+        result.description_ = "Empty reponse received from attestation endpoint";
+        CLIENT_LOG_ERROR(result.description_.c_str());
+        return result;
+    }
+
+    // Parses the returned json response
+    success = reader.parse(quote_data, json_response);
+    if (!success) {
+        result.code_ = AttestationResult::ErrorCode::ERROR_RESPONSE_PARSING;
+        result.description_ = std::string("Failed to parse quote response");
+        CLIENT_LOG_ERROR(result.description_.c_str());
+        return result;
+    }
+
+    std::string token = json_response["token"].asString();
+    if (token.empty()) {
+        result.code_ = attest::AttestationResult::ErrorCode::ERROR_EXTRACTING_JWK_INFO;
+        result.description_ = std::string("Empty Quote received from IMDS Quote Endpoint");
+        return result;
+    }
+
+    jwt_token = token;
+
+    return result;
+}
+
 AttestationResult AttestationClientImpl::GetHardwarePlatformEvidence(std::string &evidence,
                                                                      const std::string &client_payload,
                                                                      const std::string &hash_type) noexcept {
@@ -189,12 +328,12 @@ AttestationResult AttestationClientImpl::GetHardwarePlatformEvidence(std::string
     char buffer[TD_REPORT_SIZE];
     int status = TDX_GET_REPORT_SUCCESS;
     if (!client_payload.empty()) {
-        if (type.compare("sha256") == 0) {
+        if (hash_type.compare("sha256") == 0) {
             unsigned char hash[SHA256_DIGEST_LENGTH];
             SHA256((unsigned char *)client_payload.data(), client_payload.length(), hash);
             status = GetTdReport(buffer, hash, SHA256_DIGEST_LENGTH);
         }
-        else if (type.compare("sha512") == 0) {
+        else if (hash_type.compare("sha512") == 0) {
             unsigned char hash[SHA512_DIGEST_LENGTH];
             SHA512((unsigned char *)client_payload.data(), client_payload.length(), hash);
             status = GetTdReport(buffer, hash, SHA512_DIGEST_LENGTH);

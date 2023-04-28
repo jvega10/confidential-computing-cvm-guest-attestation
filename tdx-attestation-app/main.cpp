@@ -160,12 +160,19 @@ int main(int argc, char *argv[]) {
     }
     attest::AttestationResult result;
 
+    attest::ClientParameters params = {};
+    params.attestation_endpoint_url = (unsigned char *)attestation_url.c_str();
+    params.attestation_provider = provider;
+    params.attestation_api_key(api_key);
+    params.client_payload = (unsigned char *)client_payload.c_str();
+
     bool has_quote = true;
     std::string quote_data;
 
     auto start = high_resolution_clock::now();
 
-    result = attestation_client->GetHardwarePlatformEvidence(quote_data, client_payload, hash_type[provider]);
+    std::string jwt_token;
+    result = attestation_client->AttestTdx(params, jwt_token);
 
     auto stop = high_resolution_clock::now();
     duration<double, std::milli> elapsed = stop - start;
@@ -175,47 +182,14 @@ int main(int argc, char *argv[]) {
     }
 
     if (has_quote) {
-      // Parses the returned json response
-      json json_response = json::parse(quote_data);
+      // // Parses the returned json response
+      // json json_response = json::parse(quote_data);
 
-      std::string encoded_quote = json_response["quote"];
-      if (encoded_quote.empty()) {
-          result.code_ = attest::AttestationResult::ErrorCode::ERROR_EMPTY_TD_QUOTE;
-          result.description_ = std::string("Empty Quote received from IMDS Quote Endpoint");
-      }
-
-      // decode the base64url encoded quote to raw bytes
-      std::vector<unsigned char> quote_bytes = Utils::base64url_to_binary(encoded_quote);
-
-      // check if user wants to save the td quote
-      if (!output_filename.empty()) {
-          std::ofstream output_file(output_filename, std::ios::out | std::ios::binary);
-          output_file.write((char *)quote_bytes.data(), quote_bytes.size());
-          output_file.close();
-
-          std::stringstream stream;
-          stream << "Quote output file generated: " << output_filename;
-
-          cout << stream.str() << endl;;
-      }
-
-      std::string encoded_claims =
-          Utils::binary_to_base64url(std::vector<unsigned char>(client_payload.begin(), client_payload.end()));
-
-      HttpClient http_client;
-      AttestClient::Config attestation_config = {
-          attestation_url,
-          provider,
-          encoded_quote,
-          encoded_claims,
-          api_key};
-
-      auto start = high_resolution_clock::now();
-
-      std::string jwt_token = AttestClient::VerifyEvidence(attestation_config, http_client);
-
-      auto stop = high_resolution_clock::now();
-      duration<double, std::milli> token_elapsed = stop - start;
+      // std::string encoded_quote = json_response["quote"];
+      // if (encoded_quote.empty()) {
+      //     result.code_ = attest::AttestationResult::ErrorCode::ERROR_EMPTY_TD_QUOTE;
+      //     result.description_ = std::string("Empty Quote received from IMDS Quote Endpoint");
+      // }
 
       if (jwt_token.empty()) {
         fprintf(stderr, "Empty token received\n");
@@ -230,20 +204,19 @@ int main(int argc, char *argv[]) {
       if (metrics_enabled) {
         stringstream stream;
         stream << "Run Summary:\n"
-               << "\tEvidence Request(ms): " << std::to_string(elapsed.count()) << "\n"
-               << "\tAttestation Request(ms): " << std::to_string(token_elapsed.count()) << "\n";
+               << "\tAttestation Time(ms): " << std::to_string(elapsed.count()) << "\n";
 
         cout << stream.str() << endl;
 
-        json result;
-        result["Evidence Request(ms)"] = std::to_string(elapsed.count());
-        result["Attestation Request(ms)"] = std::to_string(token_elapsed.count());
+        // json result;
+        // result["Evidence Request(ms)"] = std::to_string(elapsed.count());
+        // result["Attestation Request(ms)"] = std::to_string(token_elapsed.count());
 
-        std::ofstream out("metrics.json");
-        if (out.is_open()) {
-          out << result.dump(4);
-          out.close();
-        }
+        // std::ofstream out("metrics.json");
+        // if (out.is_open()) {
+        //   out << result.dump(4);
+        //   out.close();
+        // }
       }
     }
 

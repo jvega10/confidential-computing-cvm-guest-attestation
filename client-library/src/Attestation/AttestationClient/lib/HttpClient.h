@@ -46,6 +46,13 @@ public:
                                                     const std::string &request_body = std::string(),
                                                     const std::string &content_type = std::string());
 
+
+    attest::AttestationResult InvokeHttpRequest(std::string &http_response,
+                                                const std::string &url,
+                                                const HttpClient::HttpVerb &http_verb,
+                                                const std::vector<std::string> &header_list,
+                                                const std::string &request_body);
+
 private:
     /**
      * @brief CURL Callback to write response to a user specified pointer

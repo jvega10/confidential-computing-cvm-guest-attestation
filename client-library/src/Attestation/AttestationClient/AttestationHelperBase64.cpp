@@ -73,3 +73,21 @@ std::string attest::base64::base64_decode(const std::string& data) {
         return c == '\0';
     });
 }
+
+std::string attest::base64::base64url_to_base64(const std::string &base64_data) {
+    std::string stringData = base64_data;
+
+    // While decoding base64 url, replace - with + and _ with + and
+    // use stanard base64 decode. we dont need to add padding characters. underlying library handles it.
+    boost::replace_all(stringData, "-", "+");
+    boost::replace_all(stringData, "_", "/");
+
+    // Needs to calculate the padding needed at the end
+    int padding = (4 - base64_data.size() % 4) % 4;
+    for (int i = 0; i < padding; i++)
+    {
+        stringData.push_back('=');
+    }
+
+    return stringData;
+}

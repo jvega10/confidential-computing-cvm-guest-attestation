@@ -46,9 +46,21 @@ public:
      * In case of failure, an appropriate ErrorCode will be set in the
      * AttestationResult object and error description will be provided.
      */
-    attest::AttestationResult GetHardwarePlatformEvidence(std::string &evidence,
-                                                          const std::string &client_payload = std::string(),
-                                                          const std::string &hash_type = std::string()) noexcept override;
+    virtual attest::AttestationResult GetHardwarePlatformEvidence(std::string &evidence,
+                                                                  const std::string &client_payload = std::string(),
+                                                                  const std::string &hash_type = std::string()) noexcept = 0;
+
+    /**
+     * @brief This API initiates an attestation request Attestation for TDX
+     * @param[in] client_params: ClientParameters object containing the following parameters needed
+     * for attestation - attestation url and client payload.
+     * @param[out] jwt_token: The jwt token returned by the attestation provider.
+     * @return In case of success, AttestationResult object with error code ErrorCode::Success is
+     * returned. In case of failure, an appropriate ErrorCode will be set in the AttestationResult
+     * object and error description will be provided.
+     */
+    virtual attest::AttestationResult AttestTdx(const attest::ClientParameters &client_params,
+                                                std::string &jwt_token) noexcept = 0;
 
     /**
      * @brief This API encrypts the data based on the EncryptionType paramter

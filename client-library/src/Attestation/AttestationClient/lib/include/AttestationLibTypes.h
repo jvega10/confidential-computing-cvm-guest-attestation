@@ -86,6 +86,10 @@ namespace attest {
          * Sample client_payload: "{\"key1\":\"value1\",\"key2\":\"value2\"}"
          */
         const unsigned char* client_payload = nullptr;
+
+        const unsigned char* attestation_provider = nullptr;
+
+        const unsigned char* attestation_api_key = nullptr;
     };
 
     enum class OsType {

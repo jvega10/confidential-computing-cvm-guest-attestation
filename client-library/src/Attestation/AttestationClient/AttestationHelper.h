@@ -107,5 +107,7 @@ namespace attest
          * returns: plaintext string
          */
         std::string base64_decode(const std::string& data);
+
+        std::string base64url_to_base64(const std::string &base64_data);
     }
 }

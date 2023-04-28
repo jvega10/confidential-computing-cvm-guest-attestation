@@ -151,10 +151,10 @@ int main(int argc, char *argv[]) {
       attest::AttestationResult result;
 
       attest::ClientParameters params = {};
-      params.attestation_endpoint_url = (unsigned char *)attestation_url.c_str();
-      params.attestation_provider = provider;
-      params.attestation_api_key(api_key);
-      params.client_payload = (unsigned char *)client_payload.c_str();
+      params.attestation_endpoint_url = (unsigned char *)attestation_url.data();
+      params.attestation_provider = (unsigned char *)provider.data();
+      params.attestation_api_key = (unsigned char *)api_key.data();
+      params.client_payload = (unsigned char *)client_payload.data();
 
       bool has_token = true;
       auto start = high_resolution_clock::now();

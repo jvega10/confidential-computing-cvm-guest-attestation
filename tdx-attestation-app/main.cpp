@@ -16,7 +16,6 @@ using json = nlohmann::json;
 using namespace std;
 using namespace std::chrono;
 
-#ifndef PLATFORM_UNIX
 static char *optarg = nullptr;
 static int optind = 1;
 static int getopt(int argc, char *const argv[], const char *optstring) {
@@ -46,7 +45,6 @@ static int getopt(int argc, char *const argv[], const char *optstring) {
   }
   return opt;
 }
-#endif //! PLATFORM_UNIX
 
 void usage(char *programName) {
   printf("Usage: %s [arguments]\n", programName);

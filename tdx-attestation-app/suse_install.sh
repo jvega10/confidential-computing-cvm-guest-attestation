@@ -15,4 +15,4 @@ sudo zypper install -y libcurl4
 sudo zypper install -y libboost_headers1_75_0-devel
 
 # # Install GuestAttestation Debian Package
-sudo rpm --nosignature -i package/azguestattestation1-1.0.3-2.x86_64.rpm
+sudo rpm --nosignature -i package/azguestattestation1-1.0.5-2.x86_64.rpm

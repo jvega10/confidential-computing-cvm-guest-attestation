@@ -10,6 +10,7 @@
 #include <iostream>
 #include <unordered_map>
 #include <stdio.h>
+#include <uinstd.h>
 #include "HttpClient.h"
 
 #define HTTP_STATUS_OK 200
@@ -49,6 +50,11 @@ HttpClientResult HttpClient::InvokeHttpRequest(std::string& http_response,
 
     // Set SSL versions to be used
     curl_easy_setopt(curl_handle, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_2);
+
+    // SUSE Linux uses different SSL cert path than Ubuntu
+    std::string ca_cert_path("/etc/ssl/ca-bundle.pem");
+    if (access(ca_cert_path.c_str(), F_OK) != -1)
+        curl_easy_setopt(curl_handle, CURLOPT_CAINFO, ca_cert_path.c_str());
 
     if (http_verb == HttpClient::HttpVerb::POST) {
         if (request_body.empty()) {

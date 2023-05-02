@@ -12,6 +12,7 @@ sudo zypper install -y -t pattern devel_basis
 sudo zypper install -y cmake
 sudo zypper install -y nlohmann_json-devel
 sudo zypper install -y libcurl4
+sudo zypper install -y libcurl-devel
 sudo zypper install -y libboost_headers1_75_0-devel
 
 # # Install GuestAttestation Debian Package

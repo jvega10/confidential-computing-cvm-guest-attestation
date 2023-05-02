@@ -5,7 +5,6 @@
 //-------------------------------------------------------------------------------------------------
 
 #include <curl/curl.h>
-#include <json/json.h>
 #include <math.h>
 #include <fstream>
 #include <iostream>

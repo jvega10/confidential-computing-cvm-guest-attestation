@@ -1,8 +1,8 @@
 # Hardware Attestation
 
-## Build Instructions for Linux
+## Build Instructions for Ubuntu
 
-Create a Linux Trusted Domain virtual machine in Azure and clone the application.
+Create an Ubuntu Trusted Domain virtual machine in Azure and clone the application.
 
 Use the below command to install all the dependencies necessary to run this sample app.
 ```sh

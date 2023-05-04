@@ -5,7 +5,7 @@ sudo zypper ar -cfp 90 https://ftp.fau.de/packman/suse/openSUSE_Tumbleweed/ pack
 sudo zypper addrepo -f https://download.opensuse.org/distribution/leap/15.5/repo/oss/ openSUSE-0ss
 
 # Update
-sudo zypper refresh
+sudo zypper --gpg-auto-import-keys refresh
 
 # Install required packages
 sudo zypper install -y -t pattern devel_basis

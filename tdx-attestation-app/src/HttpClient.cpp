@@ -10,7 +10,7 @@
 #include <iostream>
 #include <unordered_map>
 #include <stdio.h>
-#include <uinstd.h>
+#include <unistd.h>
 #include "HttpClient.h"
 
 #define HTTP_STATUS_OK 200

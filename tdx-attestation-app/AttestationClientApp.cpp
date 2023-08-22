@@ -119,6 +119,7 @@ int main(int argc, char* argv[]) {
         std::string client_payload_str = "{\"nonce\":\"" + nonce + "\"}"; // nonce is optional
         params.client_payload = (unsigned char*) client_payload_str.c_str();
         params.version = CLIENT_PARAMS_VERSION;
+        params.attestation_provider = "maa";
         unsigned char* jwt = nullptr;
         attest::AttestationResult result;
         

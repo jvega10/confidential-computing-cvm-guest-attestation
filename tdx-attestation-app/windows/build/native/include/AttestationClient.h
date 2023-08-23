@@ -78,7 +78,7 @@ public:
      * In case of failure, an appropriate ErrorCode will be set in the
      * AttestationResult object and error description will be provided.
      */
-    virtual attest::AttestationResult GetHardwarePlatformEvidence(std::string &evidence,
+    virtual attest::AttestationResult GetHardwarePlatformEvidence(unsigned char **evidence,
                                                                   const std::string &client_payload = std::string(),
                                                                   const std::string &hash_type = std::string()) noexcept = 0;
 
@@ -92,7 +92,7 @@ public:
      * object and error description will be provided.
      */
     virtual attest::AttestationResult AttestTdx(const attest::ClientParameters &client_params,
-                                                std::string &jwt_token) noexcept = 0;
+                                                unsigned char **jwt_token) noexcept = 0;
 
     /**
      * @brief This API decrypts the data based on the EncryptionType paramter

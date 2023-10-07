@@ -10,6 +10,7 @@ sudo apt-get install cmake -y
 sudo apt-get install libjsoncpp-dev -y
 sudo apt-get install libboost-all-dev -y
 sudo apt install nlohmann-json3-dev
+sudo apt-get install libssl-dev -y
 
 # Fetch libssl1.1 libary
 wget http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2_amd64.deb

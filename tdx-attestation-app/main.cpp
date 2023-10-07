@@ -11,6 +11,7 @@
 #include "src/Logger.h"
 #include "src/AttestClient.h"
 #include "src/HttpClient.h"
+#include <openssl/sha.h>
 
 using json = nlohmann::json;
 using namespace std;
@@ -165,8 +166,12 @@ int main(int argc, char *argv[]) {
 
     auto start = high_resolution_clock::now();
 
+    unsigned char hash[SHA512_DIGEST_LENGTH];
+    SHA512((unsigned char *)client_payload.data(), client_payload.length(), hash);
+    std::vector<unsigned char> user_data(hash, hash + SHA512_DIGEST_LENGTH);
+
     unsigned char *evidence = nullptr;
-    result = attestation_client->GetHardwarePlatformEvidence(&evidence, {});
+    result = attestation_client->GetHardwarePlatformEvidence(&evidence, user_data);
     quote_data = reinterpret_cast<char *>(evidence);
 
     auto stop = high_resolution_clock::now();
